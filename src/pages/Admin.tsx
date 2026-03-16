@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger
 } from "@/components/ui/dialog";
@@ -14,30 +13,45 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dumbbell, Users, CreditCard, ClipboardCheck, Plus, LogOut, Search,
-  TrendingUp, UserPlus, DollarSign, Activity
+  Sheet, SheetContent, SheetHeader, SheetTitle
+} from "@/components/ui/sheet";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format, differenceInDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  Dumbbell, Users, CreditCard, Plus, LogOut, Search,
+  TrendingUp, UserPlus, DollarSign, Activity, Settings, BarChart3,
+  Phone, MessageCircle, ChevronDown, CalendarIcon, X,
+  Snowflake, UserX, UserCheck, Clock, ExternalLink, Edit2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// Types
-interface Student {
-  id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  status: string;
-  enrollment_date: string;
-  plan_id: string | null;
-  notes: string | null;
-  plans?: { name: string } | null;
-}
-
+// ─── Types ───
 interface Plan {
   id: string;
   name: string;
   price: number;
   duration_days: number;
+}
+
+interface Student {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  birth_date: string | null;
+  gender: string | null;
+  status: string;
+  enrollment_date: string;
+  plan_id: string | null;
+  emergency_contact: string | null;
+  notes: string | null;
+  created_at: string;
+  plans?: { name: string; price: number; duration_days: number } | null;
 }
 
 interface Payment {
@@ -48,34 +62,83 @@ interface Payment {
   status: string;
   payment_method: string | null;
   reference_month: string | null;
-  students?: { name: string; phone: string } | null;
 }
 
 interface CheckinRecord {
   id: string;
   checked_in_at: string;
   method: string;
-  students?: { name: string } | null;
 }
+
+interface WorkoutAssignment {
+  id: string;
+  active: boolean;
+  workout_templates: { name: string; category: string } | null;
+}
+
+interface Assessment {
+  id: string;
+  assessment_date: string;
+  weight_kg: number | null;
+  body_fat_pct: number | null;
+}
+
+type AdminTab = "dashboard" | "alunos" | "treinos" | "financeiro" | "analytics" | "config";
+
+const STATUS_CONFIG: Record<string, { label: string; classes: string }> = {
+  active: { label: "Ativo", classes: "bg-primary/15 text-primary border-primary/30" },
+  trial: { label: "Trial", classes: "bg-amber-400/15 text-amber-400 border-amber-400/30" },
+  frozen: { label: "Congelado", classes: "bg-blue-400/15 text-blue-400 border-blue-400/30" },
+  inactive: { label: "Inativo", classes: "bg-muted-foreground/15 text-muted-foreground border-muted-foreground/30" },
+};
+
+const formatPhone = (value: string) => {
+  const d = value.replace(/\D/g, "");
+  if (d.length <= 2) return d;
+  if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7, 11)}`;
+};
+
+const formatPhoneDisplay = (p: string) => {
+  if (p.length === 11) return `(${p.slice(0, 2)}) ${p.slice(2, 7)}-${p.slice(7)}`;
+  if (p.length === 10) return `(${p.slice(0, 2)}) ${p.slice(2, 6)}-${p.slice(6)}`;
+  return p;
+};
 
 const Admin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
   const [students, setStudents] = useState<Student[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [todayCheckins, setTodayCheckins] = useState<CheckinRecord[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // New student dialog
+  // Students tab state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showNewStudent, setShowNewStudent] = useState(false);
-  const [newStudent, setNewStudent] = useState({ name: "", phone: "", email: "", plan_id: "", notes: "" });
+  const [studentPayments, setStudentPayments] = useState<Record<string, Payment | null>>({});
+  const [lastCheckins, setLastCheckins] = useState<Record<string, string | null>>({});
 
-  // New payment dialog
-  const [showNewPayment, setShowNewPayment] = useState(false);
-  const [newPayment, setNewPayment] = useState({ student_id: "", plan_id: "", amount: "", due_date: "", payment_method: "", reference_month: "" });
+  // Student detail sheet
+  const [detailStudent, setDetailStudent] = useState<Student | null>(null);
+  const [detailPayments, setDetailPayments] = useState<Payment[]>([]);
+  const [detailCheckins, setDetailCheckins] = useState<CheckinRecord[]>([]);
+  const [detailWorkouts, setDetailWorkouts] = useState<WorkoutAssignment[]>([]);
+  const [detailAssessments, setDetailAssessments] = useState<Assessment[]>([]);
+  const [editingStudent, setEditingStudent] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Student>>({});
+
+  // New student form
+  const [newStudent, setNewStudent] = useState({
+    name: "", phone: "", email: "", birth_date: null as Date | null,
+    gender: "", plan_id: "", emergency_contact: "", notes: "",
+  });
+
+  // Dashboard stats
+  const [todayCheckins, setTodayCheckins] = useState<{ id: string; checked_in_at: string; students: { name: string } | null }[]>([]);
 
   const checkAuth = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -83,23 +146,54 @@ const Admin = () => {
     loadData();
   }, [navigate]);
 
-  useEffect(() => { checkAuth(); }, [checkAuth]);
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) navigate("/admin/login");
+    });
+    checkAuth();
+    return () => subscription.unsubscribe();
+  }, [checkAuth, navigate]);
 
   const loadData = async () => {
     setLoading(true);
     const today = new Date().toISOString().split("T")[0];
 
-    const [sRes, pRes, payRes, cRes] = await Promise.all([
-      supabase.from("students").select("*, plans(name)").order("name"),
+    const [sRes, pRes, cRes] = await Promise.all([
+      supabase.from("students").select("*, plans(name, price, duration_days)").order("name"),
       supabase.from("plans").select("*").eq("active", true).order("price"),
-      supabase.from("payments").select("*, students(name, phone)").order("due_date", { ascending: false }).limit(50),
       supabase.from("checkins").select("*, students(name)").gte("checked_in_at", today + "T00:00:00").order("checked_in_at", { ascending: false }),
     ]);
 
-    if (sRes.data) setStudents(sRes.data as unknown as Student[]);
-    if (pRes.data) setPlans(pRes.data as Plan[]);
-    if (payRes.data) setPayments(payRes.data as unknown as Payment[]);
-    if (cRes.data) setTodayCheckins(cRes.data as unknown as CheckinRecord[]);
+    const studentsData = (sRes.data || []) as unknown as Student[];
+    setStudents(studentsData);
+    setPlans((pRes.data || []) as Plan[]);
+    setTodayCheckins((cRes.data || []) as unknown as typeof todayCheckins);
+
+    // Load latest payment per student and last checkin
+    if (studentsData.length > 0) {
+      const ids = studentsData.map(s => s.id);
+
+      const [payRes, ckRes] = await Promise.all([
+        supabase.from("payments").select("*").in("student_id", ids).order("due_date", { ascending: false }),
+        supabase.from("checkins").select("student_id, checked_in_at").in("student_id", ids).order("checked_in_at", { ascending: false }),
+      ]);
+
+      const payMap: Record<string, Payment | null> = {};
+      const ckMap: Record<string, string | null> = {};
+      ids.forEach(id => { payMap[id] = null; ckMap[id] = null; });
+
+      (payRes.data || []).forEach((p: any) => {
+        if (!payMap[p.student_id]) payMap[p.student_id] = p;
+      });
+
+      (ckRes.data || []).forEach((c: any) => {
+        if (!ckMap[c.student_id]) ckMap[c.student_id] = c.checked_in_at;
+      });
+
+      setStudentPayments(payMap);
+      setLastCheckins(ckMap);
+    }
+
     setLoading(false);
   };
 
@@ -108,70 +202,177 @@ const Admin = () => {
     navigate("/admin/login");
   };
 
+  // ─── New Student ───
   const handleAddStudent = async () => {
     const digits = newStudent.phone.replace(/\D/g, "");
-    if (!newStudent.name || !digits) {
-      toast({ title: "Preencha nome e telefone", variant: "destructive" });
+    if (!newStudent.name.trim() || digits.length < 10) {
+      toast({ title: "Preencha nome e telefone corretamente", variant: "destructive" });
       return;
     }
 
-    const { error } = await supabase.from("students").insert({
-      name: newStudent.name,
+    const { data: student, error } = await supabase.from("students").insert({
+      name: newStudent.name.trim(),
       phone: digits,
-      email: newStudent.email || null,
+      email: newStudent.email.trim() || null,
+      birth_date: newStudent.birth_date ? format(newStudent.birth_date, "yyyy-MM-dd") : null,
+      gender: newStudent.gender || null,
       plan_id: newStudent.plan_id || null,
-      notes: newStudent.notes || null,
-    });
+      emergency_contact: newStudent.emergency_contact.trim() || null,
+      notes: newStudent.notes.trim() || null,
+    }).select().single();
 
     if (error) {
-      toast({ title: "Erro ao cadastrar", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao cadastrar", description: error.message.includes("unique") ? "Telefone já cadastrado." : error.message, variant: "destructive" });
       return;
+    }
+
+    // Create first payment
+    if (student && newStudent.plan_id) {
+      const plan = plans.find(p => p.id === newStudent.plan_id);
+      if (plan) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 30);
+        await supabase.from("payments").insert({
+          student_id: student.id,
+          plan_id: plan.id,
+          amount: plan.price,
+          due_date: format(dueDate, "yyyy-MM-dd"),
+          reference_month: format(new Date(), "yyyy-MM"),
+        });
+      }
     }
 
     toast({ title: "Aluno cadastrado com sucesso!" });
     setShowNewStudent(false);
-    setNewStudent({ name: "", phone: "", email: "", plan_id: "", notes: "" });
+    setNewStudent({ name: "", phone: "", email: "", birth_date: null, gender: "", plan_id: "", emergency_contact: "", notes: "" });
     loadData();
   };
 
-  const handleAddPayment = async () => {
-    if (!newPayment.student_id || !newPayment.amount || !newPayment.due_date) {
-      toast({ title: "Preencha os campos obrigatórios", variant: "destructive" });
-      return;
-    }
+  // ─── Student Detail ───
+  const openStudentDetail = async (student: Student) => {
+    setDetailStudent(student);
+    setEditingStudent(false);
+    setEditForm({});
 
-    const { error } = await supabase.from("payments").insert({
-      student_id: newPayment.student_id,
-      plan_id: newPayment.plan_id || null,
-      amount: parseFloat(newPayment.amount),
-      due_date: newPayment.due_date,
-      payment_method: newPayment.payment_method || null,
-      reference_month: newPayment.reference_month || null,
-    });
+    const [payRes, ckRes, wRes, aRes] = await Promise.all([
+      supabase.from("payments").select("*").eq("student_id", student.id).order("due_date", { ascending: false }),
+      supabase.from("checkins").select("id, checked_in_at, method").eq("student_id", student.id).order("checked_in_at", { ascending: false }).limit(30),
+      supabase.from("student_workouts").select("id, active, workout_templates(name, category)").eq("student_id", student.id),
+      supabase.from("assessments").select("id, assessment_date, weight_kg, body_fat_pct").eq("student_id", student.id).order("assessment_date", { ascending: false }).limit(5),
+    ]);
 
+    setDetailPayments((payRes.data || []) as Payment[]);
+    setDetailCheckins((ckRes.data || []) as CheckinRecord[]);
+    setDetailWorkouts((wRes.data || []) as unknown as WorkoutAssignment[]);
+    setDetailAssessments((aRes.data || []) as Assessment[]);
+  };
+
+  const updateStudentStatus = async (status: string) => {
+    if (!detailStudent) return;
+    await supabase.from("students").update({ status }).eq("id", detailStudent.id);
+    toast({ title: `Status alterado para ${STATUS_CONFIG[status]?.label || status}` });
+    setDetailStudent({ ...detailStudent, status });
+    loadData();
+  };
+
+  const saveStudentEdit = async () => {
+    if (!detailStudent) return;
+    const { error } = await supabase.from("students").update(editForm).eq("id", detailStudent.id);
     if (error) {
-      toast({ title: "Erro ao registrar pagamento", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return;
     }
-
-    toast({ title: "Pagamento registrado!" });
-    setShowNewPayment(false);
-    setNewPayment({ student_id: "", plan_id: "", amount: "", due_date: "", payment_method: "", reference_month: "" });
+    toast({ title: "Dados atualizados!" });
+    setEditingStudent(false);
+    setDetailStudent({ ...detailStudent, ...editForm } as Student);
     loadData();
   };
 
-  const markPaymentPaid = async (id: string) => {
-    await supabase.from("payments").update({ status: "paid", paid_date: new Date().toISOString().split("T")[0] }).eq("id", id);
+  const changePlan = async (planId: string) => {
+    if (!detailStudent) return;
+    await supabase.from("students").update({ plan_id: planId }).eq("id", detailStudent.id);
+    const plan = plans.find(p => p.id === planId);
+    toast({ title: `Plano alterado para ${plan?.name}` });
     loadData();
+    // Refresh detail
+    const { data } = await supabase.from("students").select("*, plans(name, price, duration_days)").eq("id", detailStudent.id).single();
+    if (data) setDetailStudent(data as unknown as Student);
   };
 
-  const filteredStudents = students.filter(s =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.phone.includes(searchTerm.replace(/\D/g, ""))
-  );
+  // ─── Filters ───
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.phone.includes(searchTerm.replace(/\D/g, ""));
+    const matchesStatus = statusFilter === "all" || s.status === statusFilter;
 
+    let matchesPayment = true;
+    if (paymentFilter === "overdue") {
+      const latestPay = studentPayments[s.id];
+      matchesPayment = !!latestPay && latestPay.status !== "paid" && new Date(latestPay.due_date) < new Date();
+    }
+
+    return matchesSearch && matchesStatus && matchesPayment;
+  });
+
+  // Bulk actions
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredStudents.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredStudents.map(s => s.id)));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const bulkWhatsapp = () => {
+    const selected = students.filter(s => selectedIds.has(s.id));
+    selected.forEach(s => {
+      const msg = encodeURIComponent(
+        `Olá ${s.name}! Lembramos que sua mensalidade na FitForge está pendente. Regularize na recepção ou entre em contato conosco. 💪`
+      );
+      window.open(`https://wa.me/55${s.phone}?text=${msg}`, "_blank");
+    });
+  };
+
+  // Payment status helper
+  const getPaymentStatus = (studentId: string) => {
+    const p = studentPayments[studentId];
+    if (!p) return null;
+    if (p.status === "paid") return { label: "Em dia", classes: "bg-primary/15 text-primary border-primary/30" };
+    const overdueDays = differenceInDays(new Date(), new Date(p.due_date));
+    if (overdueDays > 0) return { label: `Atrasada ${overdueDays}d`, classes: "bg-destructive/15 text-destructive border-destructive/30" };
+    return { label: "Pendente", classes: "bg-amber-400/15 text-amber-400 border-amber-400/30" };
+  };
+
+  const getLastCheckinLabel = (studentId: string) => {
+    const ck = lastCheckins[studentId];
+    if (!ck) return "Nunca";
+    const d = differenceInDays(new Date(), new Date(ck));
+    if (d === 0) return "Hoje";
+    if (d === 1) return "Ontem";
+    return `${d}d atrás`;
+  };
+
+  // Stats
   const activeStudents = students.filter(s => s.status === "active").length;
-  const pendingPayments = payments.filter(p => p.status === "pending").length;
+  const overdueCount = students.filter(s => {
+    const p = studentPayments[s.id];
+    return p && p.status !== "paid" && new Date(p.due_date) < new Date();
+  }).length;
+
+  const tabs: { id: AdminTab; label: string; icon: typeof Users }[] = [
+    { id: "dashboard", label: "Dashboard", icon: Activity },
+    { id: "alunos", label: "Alunos", icon: Users },
+    { id: "treinos", label: "Treinos", icon: Dumbbell },
+    { id: "financeiro", label: "Financeiro", icon: CreditCard },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "config", label: "Configurações", icon: Settings },
+  ];
 
   if (loading) {
     return (
@@ -184,70 +385,69 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="container flex items-center justify-between h-14 px-4">
+      <header className="border-b border-border/40 bg-card/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="flex items-center justify-between h-14 px-4 max-w-[1400px] mx-auto">
           <div className="flex items-center gap-2">
             <Dumbbell className="h-6 w-6 text-primary" />
-            <span className="font-display text-lg font-bold">FitForge Admin</span>
+            <span className="font-display text-lg font-bold">FitForge</span>
+            <Badge variant="outline" className="text-[10px] border-border/50 text-muted-foreground ml-1 hidden sm:inline-flex">Admin</Badge>
           </div>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-1" /> Sair
           </Button>
         </div>
+        {/* Tabs */}
+        <div className="max-w-[1400px] mx-auto px-4 overflow-x-auto">
+          <div className="flex gap-0.5 -mb-px min-w-max">
+            {tabs.map(t => (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === t.id
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </header>
 
-      <div className="container px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-card border border-border/50 mb-6 w-full justify-start overflow-x-auto">
-            <TabsTrigger value="dashboard" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Activity className="h-4 w-4 mr-1" /> Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="students" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Users className="h-4 w-4 mr-1" /> Alunos
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <CreditCard className="h-4 w-4 mr-1" /> Pagamentos
-            </TabsTrigger>
-            <TabsTrigger value="checkins" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <ClipboardCheck className="h-4 w-4 mr-1" /> Check-ins
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Dashboard */}
-          <TabsContent value="dashboard" className="space-y-6">
+      <main className="max-w-[1400px] mx-auto px-4 py-6">
+        {/* ═══ DASHBOARD ═══ */}
+        {activeTab === "dashboard" && (
+          <div className="space-y-6">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: "Alunos Ativos", value: activeStudents, icon: Users, color: "text-primary" },
-                { label: "Check-ins Hoje", value: todayCheckins.length, icon: ClipboardCheck, color: "text-primary" },
-                { label: "Pagamentos Pendentes", value: pendingPayments, icon: DollarSign, color: "text-yellow-400" },
-                { label: "Total Alunos", value: students.length, icon: TrendingUp, color: "text-primary" },
-              ].map((stat) => (
-                <Card key={stat.label} className="bg-card border-border/50">
+                { label: "Alunos Ativos", value: activeStudents, icon: Users },
+                { label: "Check-ins Hoje", value: todayCheckins.length, icon: Activity },
+                { label: "Mensalidades Atrasadas", value: overdueCount, icon: DollarSign },
+                { label: "Total Alunos", value: students.length, icon: TrendingUp },
+              ].map(s => (
+                <Card key={s.label} className="bg-card border-border/40">
                   <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                    </div>
-                    <p className="font-display text-2xl font-bold">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    <s.icon className="h-5 w-5 text-primary mb-2" />
+                    <p className="font-display text-2xl font-bold">{s.value}</p>
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
-
-            {/* Recent checkins */}
-            <Card className="bg-card border-border/50">
-              <CardHeader>
-                <CardTitle className="font-display text-lg">Check-ins de Hoje</CardTitle>
-              </CardHeader>
+            <Card className="bg-card border-border/40">
+              <CardHeader><CardTitle className="font-display text-lg">Check-ins de Hoje</CardTitle></CardHeader>
               <CardContent>
                 {todayCheckins.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-4">Nenhum check-in hoje.</p>
+                  <p className="text-muted-foreground text-sm text-center py-6">Nenhum check-in hoje.</p>
                 ) : (
-                  <div className="space-y-2">
-                    {todayCheckins.slice(0, 10).map((c) => (
-                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 text-sm">
+                  <div className="space-y-1.5">
+                    {todayCheckins.slice(0, 15).map((c) => (
+                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 text-sm">
                         <span className="font-medium">{c.students?.name || "—"}</span>
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">
                           {new Date(c.checked_in_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       </div>
@@ -256,204 +456,468 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+        )}
 
-          {/* Students */}
-          <TabsContent value="students" className="space-y-4">
-            <div className="flex items-center gap-3">
+        {/* ═══ ALUNOS ═══ */}
+        {activeTab === "alunos" && (
+          <div className="space-y-4">
+            {/* Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar aluno..."
+                  placeholder="Buscar por nome ou telefone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
                 />
               </div>
-              <Dialog open={showNewStudent} onOpenChange={setShowNewStudent}>
-                <DialogTrigger asChild>
-                  <Button className="font-semibold">
-                    <UserPlus className="h-4 w-4 mr-1" /> Novo Aluno
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-card border-border/50">
-                  <DialogHeader>
-                    <DialogTitle className="font-display">Cadastrar Aluno</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-3">
-                    <Input placeholder="Nome completo *" value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} />
-                    <Input placeholder="Telefone *" value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: e.target.value })} />
-                    <Input placeholder="Email" type="email" value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} />
-                    <Select value={newStudent.plan_id} onValueChange={(v) => setNewStudent({ ...newStudent, plan_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Plano" /></SelectTrigger>
-                      <SelectContent>
-                        {plans.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name} - R${p.price}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Textarea placeholder="Observações" value={newStudent.notes} onChange={(e) => setNewStudent({ ...newStudent, notes: e.target.value })} />
-                    <Button onClick={handleAddStudent} className="w-full font-semibold">Cadastrar</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <Card className="bg-card border-border/50 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/50 hover:bg-transparent">
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Plano</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredStudents.map((s) => (
-                    <TableRow key={s.id} className="border-border/50">
-                      <TableCell className="font-medium">{s.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{s.phone}</TableCell>
-                      <TableCell className="text-muted-foreground">{s.plans?.name || "—"}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          s.status === "active" ? "border-primary/30 text-primary" :
-                          s.status === "trial" ? "border-blue-400/30 text-blue-400" :
-                          "border-destructive/30 text-destructive"
-                        }>
-                          {s.status === "active" ? "Ativo" : s.status === "trial" ? "Trial" : s.status === "frozen" ? "Congelado" : "Inativo"}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
-
-          {/* Payments */}
-          <TabsContent value="payments" className="space-y-4">
-            <div className="flex justify-end">
-              <Dialog open={showNewPayment} onOpenChange={setShowNewPayment}>
-                <DialogTrigger asChild>
-                  <Button className="font-semibold">
-                    <Plus className="h-4 w-4 mr-1" /> Novo Pagamento
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-card border-border/50">
-                  <DialogHeader>
-                    <DialogTitle className="font-display">Registrar Pagamento</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-3">
-                    <Select value={newPayment.student_id} onValueChange={(v) => setNewPayment({ ...newPayment, student_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Aluno *" /></SelectTrigger>
-                      <SelectContent>
-                        {students.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select value={newPayment.plan_id} onValueChange={(v) => {
-                      const plan = plans.find(p => p.id === v);
-                      setNewPayment({ ...newPayment, plan_id: v, amount: plan ? plan.price.toString() : "" });
-                    }}>
-                      <SelectTrigger><SelectValue placeholder="Plano" /></SelectTrigger>
-                      <SelectContent>
-                        {plans.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.name} - R${p.price}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Valor *" type="number" value={newPayment.amount} onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })} />
-                    <Input placeholder="Vencimento *" type="date" value={newPayment.due_date} onChange={(e) => setNewPayment({ ...newPayment, due_date: e.target.value })} />
-                    <Select value={newPayment.payment_method} onValueChange={(v) => setNewPayment({ ...newPayment, payment_method: v })}>
-                      <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pix">PIX</SelectItem>
-                        <SelectItem value="cash">Dinheiro</SelectItem>
-                        <SelectItem value="credit">Cartão Crédito</SelectItem>
-                        <SelectItem value="debit">Cartão Débito</SelectItem>
-                        <SelectItem value="transfer">Transferência</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Mês referência (ex: 2026-03)" value={newPayment.reference_month} onChange={(e) => setNewPayment({ ...newPayment, reference_month: e.target.value })} />
-                    <Button onClick={handleAddPayment} className="w-full font-semibold">Registrar</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            <Card className="bg-card border-border/50 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/50 hover:bg-transparent">
-                    <TableHead>Aluno</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Vencimento</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Ação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.map((p) => (
-                    <TableRow key={p.id} className="border-border/50">
-                      <TableCell className="font-medium">{p.students?.name || "—"}</TableCell>
-                      <TableCell className="font-display">R${Number(p.amount).toFixed(2)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(p.due_date).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={
-                          p.status === "paid" ? "border-primary/30 text-primary" :
-                          p.status === "overdue" ? "border-destructive/30 text-destructive" :
-                          "border-yellow-400/30 text-yellow-400"
-                        }>
-                          {p.status === "paid" ? "Pago" : p.status === "overdue" ? "Atrasado" : "Pendente"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {p.status === "pending" && (
-                          <Button size="sm" variant="outline" className="text-xs" onClick={() => markPaymentPaid(p.id)}>
-                            Marcar Pago
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
-
-          {/* Checkins */}
-          <TabsContent value="checkins">
-            <Card className="bg-card border-border/50">
-              <CardHeader>
-                <CardTitle className="font-display text-lg">Check-ins de Hoje ({todayCheckins.length})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {todayCheckins.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-8">Nenhum check-in registrado hoje.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {todayCheckins.map((c) => (
-                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 text-sm">
-                        <div>
-                          <span className="font-medium">{c.students?.name || "—"}</span>
-                          <Badge variant="secondary" className="ml-2 text-xs">{c.method}</Badge>
+              <div className="flex gap-2">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="active">Ativos</SelectItem>
+                    <SelectItem value="inactive">Inativos</SelectItem>
+                    <SelectItem value="frozen">Congelados</SelectItem>
+                    <SelectItem value="trial">Trial</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Mensalidade: Todos</SelectItem>
+                    <SelectItem value="overdue">Atrasadas</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Dialog open={showNewStudent} onOpenChange={setShowNewStudent}>
+                  <DialogTrigger asChild>
+                    <Button className="font-semibold shrink-0">
+                      <UserPlus className="h-4 w-4 mr-1" /> Novo Aluno
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-card border-border/40 max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="font-display text-xl">Cadastrar Aluno</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 mt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-xs font-medium text-muted-foreground">Nome completo *</label>
+                          <Input value={newStudent.name} onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })} placeholder="João Silva" />
                         </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-muted-foreground">Telefone *</label>
+                          <Input value={newStudent.phone} onChange={(e) => setNewStudent({ ...newStudent, phone: formatPhone(e.target.value) })} placeholder="(11) 99999-9999" maxLength={15} inputMode="tel" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-muted-foreground">Email</label>
+                          <Input type="email" value={newStudent.email} onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })} placeholder="joao@email.com" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-muted-foreground">Data de Nascimento</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !newStudent.birth_date && "text-muted-foreground")}>
+                                <CalendarIcon className="h-4 w-4 mr-2" />
+                                {newStudent.birth_date ? format(newStudent.birth_date, "dd/MM/yyyy") : "Selecionar"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={newStudent.birth_date || undefined}
+                                onSelect={(d) => setNewStudent({ ...newStudent, birth_date: d || null })}
+                                disabled={(d) => d > new Date()}
+                                initialFocus
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-medium text-muted-foreground">Gênero</label>
+                          <Select value={newStudent.gender} onValueChange={(v) => setNewStudent({ ...newStudent, gender: v })}>
+                            <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="M">Masculino</SelectItem>
+                              <SelectItem value="F">Feminino</SelectItem>
+                              <SelectItem value="other">Outro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-xs font-medium text-muted-foreground">Plano</label>
+                          <Select value={newStudent.plan_id} onValueChange={(v) => setNewStudent({ ...newStudent, plan_id: v })}>
+                            <SelectTrigger><SelectValue placeholder="Selecionar plano" /></SelectTrigger>
+                            <SelectContent>
+                              {plans.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>{p.name} — R${p.price}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-xs font-medium text-muted-foreground">Contato de emergência</label>
+                          <Input value={newStudent.emergency_contact} onChange={(e) => setNewStudent({ ...newStudent, emergency_contact: e.target.value })} placeholder="Nome — Telefone" />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <label className="text-xs font-medium text-muted-foreground">Observações</label>
+                          <Textarea value={newStudent.notes} onChange={(e) => setNewStudent({ ...newStudent, notes: e.target.value })} placeholder="Lesões, restrições, objetivos..." rows={3} />
+                        </div>
+                      </div>
+                      <Button onClick={handleAddStudent} className="w-full font-semibold h-11">Cadastrar Aluno</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+
+            {/* Bulk actions */}
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20 animate-fade-in">
+                <span className="text-sm font-medium">{selectedIds.size} aluno(s) selecionado(s)</span>
+                <Button size="sm" variant="outline" className="text-xs" onClick={bulkWhatsapp}>
+                  <MessageCircle className="h-3.5 w-3.5 mr-1" /> Lembrete de Mensalidade
+                </Button>
+                <Button size="sm" variant="ghost" className="text-xs ml-auto" onClick={() => setSelectedIds(new Set())}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+
+            {/* Students table */}
+            <Card className="bg-card border-border/40 overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border/40 hover:bg-transparent">
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={selectedIds.size > 0 && selectedIds.size === filteredStudents.length}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>Nome</TableHead>
+                      <TableHead className="hidden sm:table-cell">Telefone</TableHead>
+                      <TableHead className="hidden md:table-cell">Plano</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="hidden lg:table-cell">Último Check-in</TableHead>
+                      <TableHead className="hidden md:table-cell">Mensalidade</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                          Nenhum aluno encontrado.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredStudents.map(s => {
+                        const st = STATUS_CONFIG[s.status] || STATUS_CONFIG.inactive;
+                        const ps = getPaymentStatus(s.id);
+                        return (
+                          <TableRow
+                            key={s.id}
+                            className="border-border/30 cursor-pointer hover:bg-secondary/30"
+                            onClick={(e) => {
+                              if ((e.target as HTMLElement).closest('[role="checkbox"]')) return;
+                              openStudentDetail(s);
+                            }}
+                          >
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={selectedIds.has(s.id)}
+                                onCheckedChange={() => toggleSelect(s.id)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <span className="font-medium">{s.name}</span>
+                                <span className="text-xs text-muted-foreground sm:hidden block">{formatPhoneDisplay(s.phone)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground hidden sm:table-cell text-sm">{formatPhoneDisplay(s.phone)}</TableCell>
+                            <TableCell className="text-muted-foreground hidden md:table-cell text-sm">{s.plans?.name || "—"}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={`text-[10px] ${st.classes}`}>{st.label}</Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">{getLastCheckinLabel(s.id)}</TableCell>
+                            <TableCell className="hidden md:table-cell">
+                              {ps ? (
+                                <Badge variant="outline" className={`text-[10px] ${ps.classes}`}>{ps.label}</Badge>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="px-4 py-3 border-t border-border/30 text-xs text-muted-foreground">
+                {filteredStudents.length} aluno(s)
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* ═══ TREINOS (Placeholder) ═══ */}
+        {activeTab === "treinos" && (
+          <Card className="bg-card border-border/40">
+            <CardContent className="py-20 text-center">
+              <Dumbbell className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <p className="font-display text-xl font-bold mb-1">Gestão de Treinos</p>
+              <p className="text-sm text-muted-foreground">Em construção — gerencie templates e atribua treinos aos alunos.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ═══ FINANCEIRO (Placeholder) ═══ */}
+        {activeTab === "financeiro" && (
+          <Card className="bg-card border-border/40">
+            <CardContent className="py-20 text-center">
+              <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <p className="font-display text-xl font-bold mb-1">Financeiro</p>
+              <p className="text-sm text-muted-foreground">Em construção — controle de pagamentos e relatórios financeiros.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ═══ ANALYTICS (Placeholder) ═══ */}
+        {activeTab === "analytics" && (
+          <Card className="bg-card border-border/40">
+            <CardContent className="py-20 text-center">
+              <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <p className="font-display text-xl font-bold mb-1">Analytics</p>
+              <p className="text-sm text-muted-foreground">Em construção — métricas de frequência, retenção e receita.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ═══ CONFIGURAÇÕES (Placeholder) ═══ */}
+        {activeTab === "config" && (
+          <Card className="bg-card border-border/40">
+            <CardContent className="py-20 text-center">
+              <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <p className="font-display text-xl font-bold mb-1">Configurações</p>
+              <p className="text-sm text-muted-foreground">Em construção — dados da academia, planos, horários.</p>
+            </CardContent>
+          </Card>
+        )}
+      </main>
+
+      {/* ═══ STUDENT DETAIL SHEET ═══ */}
+      <Sheet open={!!detailStudent} onOpenChange={(open) => { if (!open) setDetailStudent(null); }}>
+        <SheetContent className="bg-card border-border/40 w-full sm:max-w-lg overflow-y-auto p-0">
+          {detailStudent && (
+            <div>
+              {/* Sheet Header */}
+              <SheetHeader className="p-6 pb-4 border-b border-border/40">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <SheetTitle className="font-display text-xl">{detailStudent.name}</SheetTitle>
+                    <p className="text-sm text-muted-foreground mt-0.5">{formatPhoneDisplay(detailStudent.phone)}</p>
+                  </div>
+                  <Badge variant="outline" className={`${STATUS_CONFIG[detailStudent.status]?.classes}`}>
+                    {STATUS_CONFIG[detailStudent.status]?.label}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <p className="text-xs text-muted-foreground flex-1">
+                    {detailStudent.plans?.name || "Sem plano"} · Membro desde {format(new Date(detailStudent.enrollment_date), "dd/MM/yyyy")}
+                  </p>
+                </div>
+              </SheetHeader>
+
+              {/* Actions */}
+              <div className="p-4 border-b border-border/40 space-y-3">
+                <div className="flex gap-2 flex-wrap">
+                  {detailStudent.status === "active" && (
+                    <>
+                      <Button size="sm" variant="outline" className="text-xs border-blue-400/30 text-blue-400 hover:bg-blue-400/10" onClick={() => updateStudentStatus("frozen")}>
+                        <Snowflake className="h-3.5 w-3.5 mr-1" /> Congelar
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground hover:bg-muted/20" onClick={() => updateStudentStatus("inactive")}>
+                        <UserX className="h-3.5 w-3.5 mr-1" /> Inativar
+                      </Button>
+                    </>
+                  )}
+                  {(detailStudent.status === "inactive" || detailStudent.status === "frozen") && (
+                    <Button size="sm" variant="outline" className="text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => updateStudentStatus("active")}>
+                      <UserCheck className="h-3.5 w-3.5 mr-1" /> Reativar
+                    </Button>
+                  )}
+                  <a href={`https://wa.me/55${detailStudent.phone}`} target="_blank" rel="noopener noreferrer">
+                    <Button size="sm" variant="outline" className="text-xs">
+                      <MessageCircle className="h-3.5 w-3.5 mr-1" /> WhatsApp
+                    </Button>
+                  </a>
+                  <Button size="sm" variant="outline" className="text-xs" onClick={() => {
+                    setEditingStudent(true);
+                    setEditForm({
+                      name: detailStudent.name,
+                      email: detailStudent.email,
+                      emergency_contact: detailStudent.emergency_contact,
+                      notes: detailStudent.notes,
+                    });
+                  }}>
+                    <Edit2 className="h-3.5 w-3.5 mr-1" /> Editar
+                  </Button>
+                </div>
+
+                {/* Plan changer */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Plano:</span>
+                  <Select value={detailStudent.plan_id || ""} onValueChange={changePlan}>
+                    <SelectTrigger className="h-8 text-xs flex-1">
+                      <SelectValue placeholder="Selecionar plano" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name} — R${p.price}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Edit form */}
+              {editingStudent && (
+                <div className="p-4 border-b border-border/40 space-y-3 bg-secondary/20 animate-fade-in">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Editar Dados</p>
+                  <Input placeholder="Nome" value={editForm.name || ""} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                  <Input placeholder="Email" value={editForm.email || ""} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+                  <Input placeholder="Contato de emergência" value={editForm.emergency_contact || ""} onChange={(e) => setEditForm({ ...editForm, emergency_contact: e.target.value })} />
+                  <Textarea placeholder="Observações" value={editForm.notes || ""} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2} />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={saveStudentEdit} className="text-xs">Salvar</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingStudent(false)} className="text-xs">Cancelar</Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Detail info */}
+              {detailStudent.email && (
+                <div className="px-4 py-3 border-b border-border/40 text-sm text-muted-foreground">
+                  📧 {detailStudent.email}
+                </div>
+              )}
+              {detailStudent.emergency_contact && (
+                <div className="px-4 py-3 border-b border-border/40 text-sm text-muted-foreground">
+                  🚨 {detailStudent.emergency_contact}
+                </div>
+              )}
+              {detailStudent.notes && (
+                <div className="px-4 py-3 border-b border-border/40 text-sm text-muted-foreground italic">
+                  📝 {detailStudent.notes}
+                </div>
+              )}
+
+              {/* Workouts */}
+              <div className="p-4 border-b border-border/40">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Treinos Atribuídos</p>
+                {detailWorkouts.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum treino atribuído.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {detailWorkouts.map(w => (
+                      <div key={w.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/40 text-sm">
+                        <span>{w.workout_templates?.name || "—"}</span>
+                        <Badge variant={w.active ? "default" : "secondary"} className="text-[10px]">
+                          {w.active ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Recent Checkins */}
+              <div className="p-4 border-b border-border/40">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Check-ins (últimos 30)
+                </p>
+                {detailCheckins.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum check-in.</p>
+                ) : (
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {detailCheckins.map(c => (
+                      <div key={c.id} className="flex items-center justify-between text-sm py-1.5">
                         <span className="text-muted-foreground">
-                          {new Date(c.checked_in_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          {format(new Date(c.checked_in_at), "EEE, dd/MM", { locale: ptBR })}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(c.checked_in_at), "HH:mm")}
                         </span>
                       </div>
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+              </div>
+
+              {/* Assessments */}
+              <div className="p-4 border-b border-border/40">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Avaliações</p>
+                {detailAssessments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma avaliação.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {detailAssessments.map(a => (
+                      <div key={a.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/40 text-sm">
+                        <span>{format(new Date(a.assessment_date), "dd/MM/yyyy")}</span>
+                        <div className="flex gap-3 text-xs text-muted-foreground">
+                          {a.weight_kg && <span>{a.weight_kg}kg</span>}
+                          {a.body_fat_pct && <span>{a.body_fat_pct}%</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Payments */}
+              <div className="p-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Pagamentos</p>
+                {detailPayments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum pagamento.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {detailPayments.map(p => {
+                      const payStatus: Record<string, { label: string; classes: string }> = {
+                        paid: { label: "Pago", classes: "bg-primary/15 text-primary border-primary/30" },
+                        pending: { label: "Pendente", classes: "bg-amber-400/15 text-amber-400 border-amber-400/30" },
+                        overdue: { label: "Atrasado", classes: "bg-destructive/15 text-destructive border-destructive/30" },
+                        cancelled: { label: "Cancelado", classes: "bg-muted text-muted-foreground border-border" },
+                      };
+                      const ps = payStatus[p.status] || payStatus.pending;
+                      return (
+                        <div key={p.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/40 text-sm">
+                          <div>
+                            <span className="font-display font-semibold">R${Number(p.amount).toFixed(2)}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              Venc. {format(new Date(p.due_date), "dd/MM/yy")}
+                            </span>
+                          </div>
+                          <Badge variant="outline" className={`text-[10px] ${ps.classes}`}>{ps.label}</Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
