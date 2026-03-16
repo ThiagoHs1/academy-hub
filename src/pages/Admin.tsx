@@ -4,6 +4,7 @@ import AdminAssessments from "@/components/admin/AdminAssessments";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import AdminFinanceiro from "@/components/admin/AdminFinanceiro";
 import AdminAnalytics from "@/components/admin/AdminAnalytics";
+import AdminConfig from "@/components/admin/AdminConfig";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle
 } from "@/components/ui/sheet";
@@ -393,8 +400,15 @@ const Admin = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-background">
+        <header className="border-b border-border/40 bg-card/50 h-14" />
+        <main className="max-w-[1400px] mx-auto px-4 py-6 space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
+          </div>
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+        </main>
       </div>
     );
   }
@@ -658,16 +672,8 @@ const Admin = () => {
         {/* ═══ ANALYTICS ═══ */}
         {activeTab === "analytics" && <AdminAnalytics />}
 
-        {/* ═══ CONFIGURAÇÕES (Placeholder) ═══ */}
-        {activeTab === "config" && (
-          <Card className="bg-card border-border/40">
-            <CardContent className="py-20 text-center">
-              <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="font-display text-xl font-bold mb-1">Configurações</p>
-              <p className="text-sm text-muted-foreground">Em construção — dados da academia, planos, horários.</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* ═══ CONFIGURAÇÕES ═══ */}
+        {activeTab === "config" && <AdminConfig />}
       </main>
 
       {/* ═══ STUDENT DETAIL SHEET ═══ */}
@@ -701,9 +707,27 @@ const Admin = () => {
                       <Button size="sm" variant="outline" className="text-xs border-blue-400/30 text-blue-400 hover:bg-blue-400/10" onClick={() => updateStudentStatus("frozen")}>
                         <Snowflake className="h-3.5 w-3.5 mr-1" /> Congelar
                       </Button>
-                      <Button size="sm" variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground hover:bg-muted/20" onClick={() => updateStudentStatus("inactive")}>
-                        <UserX className="h-3.5 w-3.5 mr-1" /> Inativar
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground hover:bg-muted/20">
+                            <UserX className="h-3.5 w-3.5 mr-1" /> Inativar
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-card border-border/40">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Inativar {detailStudent.name}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              O aluno não poderá fazer check-in e sua contagem de mensalidade será pausada.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => updateStudentStatus("inactive")} className="bg-destructive text-destructive-foreground">
+                              Confirmar Inativação
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </>
                   )}
                   {(detailStudent.status === "inactive" || detailStudent.status === "frozen") && (
