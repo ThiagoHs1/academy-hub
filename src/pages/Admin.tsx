@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import AdminTreinos from "@/components/admin/AdminTreinos";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
