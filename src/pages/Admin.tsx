@@ -671,16 +671,8 @@ const Admin = () => {
           </div>
         )}
 
-        {/* ═══ TREINOS (Placeholder) ═══ */}
-        {activeTab === "treinos" && (
-          <Card className="bg-card border-border/40">
-            <CardContent className="py-20 text-center">
-              <Dumbbell className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="font-display text-xl font-bold mb-1">Gestão de Treinos</p>
-              <p className="text-sm text-muted-foreground">Em construção — gerencie templates e atribua treinos aos alunos.</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* ═══ TREINOS ═══ */}
+        {activeTab === "treinos" && <AdminTreinos />}
 
         {/* ═══ FINANCEIRO (Placeholder) ═══ */}
         {activeTab === "financeiro" && (
