@@ -82,7 +82,19 @@ interface Assessment {
   id: string;
   assessment_date: string;
   weight_kg: number | null;
+  height_cm: number | null;
   body_fat_pct: number | null;
+  muscle_mass_kg: number | null;
+  chest_cm: number | null;
+  waist_cm: number | null;
+  hip_cm: number | null;
+  right_arm_cm: number | null;
+  left_arm_cm: number | null;
+  right_thigh_cm: number | null;
+  left_thigh_cm: number | null;
+  right_calf_cm: number | null;
+  left_calf_cm: number | null;
+  notes: string | null;
 }
 
 type AdminTab = "dashboard" | "alunos" | "treinos" | "financeiro" | "analytics" | "config";
