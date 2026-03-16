@@ -659,16 +659,8 @@ const Admin = () => {
         {/* ═══ ANALYTICS ═══ */}
         {activeTab === "analytics" && <AdminAnalytics />}
 
-        {/* ═══ CONFIGURAÇÕES (Placeholder) ═══ */}
-        {activeTab === "config" && (
-          <Card className="bg-card border-border/40">
-            <CardContent className="py-20 text-center">
-              <Settings className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="font-display text-xl font-bold mb-1">Configurações</p>
-              <p className="text-sm text-muted-foreground">Em construção — dados da academia, planos, horários.</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* ═══ CONFIGURAÇÕES ═══ */}
+        {activeTab === "config" && <AdminConfig />}
       </main>
 
       {/* ═══ STUDENT DETAIL SHEET ═══ */}
