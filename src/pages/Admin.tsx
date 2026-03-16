@@ -272,7 +272,7 @@ const Admin = () => {
       supabase.from("payments").select("*").eq("student_id", student.id).order("due_date", { ascending: false }),
       supabase.from("checkins").select("id, checked_in_at, method").eq("student_id", student.id).order("checked_in_at", { ascending: false }).limit(30),
       supabase.from("student_workouts").select("id, active, workout_templates(name, category)").eq("student_id", student.id),
-      supabase.from("assessments").select("id, assessment_date, weight_kg, body_fat_pct").eq("student_id", student.id).order("assessment_date", { ascending: false }).limit(5),
+      supabase.from("assessments").select("*").eq("student_id", student.id).order("assessment_date", { ascending: false }),
     ]);
 
     setDetailPayments((payRes.data || []) as Payment[]);
