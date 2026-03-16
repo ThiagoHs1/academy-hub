@@ -3,6 +3,7 @@ import AdminTreinos from "@/components/admin/AdminTreinos";
 import AdminAssessments from "@/components/admin/AdminAssessments";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import AdminFinanceiro from "@/components/admin/AdminFinanceiro";
+import AdminAnalytics from "@/components/admin/AdminAnalytics";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -654,16 +655,8 @@ const Admin = () => {
         {/* ═══ FINANCEIRO ═══ */}
         {activeTab === "financeiro" && <AdminFinanceiro />}
 
-        {/* ═══ ANALYTICS (Placeholder) ═══ */}
-        {activeTab === "analytics" && (
-          <Card className="bg-card border-border/40">
-            <CardContent className="py-20 text-center">
-              <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="font-display text-xl font-bold mb-1">Analytics</p>
-              <p className="text-sm text-muted-foreground">Em construção — métricas de frequência, retenção e receita.</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* ═══ ANALYTICS ═══ */}
+        {activeTab === "analytics" && <AdminAnalytics />}
 
         {/* ═══ CONFIGURAÇÕES (Placeholder) ═══ */}
         {activeTab === "config" && (
