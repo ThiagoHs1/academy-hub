@@ -700,9 +700,27 @@ const Admin = () => {
                       <Button size="sm" variant="outline" className="text-xs border-blue-400/30 text-blue-400 hover:bg-blue-400/10" onClick={() => updateStudentStatus("frozen")}>
                         <Snowflake className="h-3.5 w-3.5 mr-1" /> Congelar
                       </Button>
-                      <Button size="sm" variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground hover:bg-muted/20" onClick={() => updateStudentStatus("inactive")}>
-                        <UserX className="h-3.5 w-3.5 mr-1" /> Inativar
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-xs border-muted-foreground/30 text-muted-foreground hover:bg-muted/20">
+                            <UserX className="h-3.5 w-3.5 mr-1" /> Inativar
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="bg-card border-border/40">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Inativar {detailStudent.name}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              O aluno não poderá fazer check-in e sua contagem de mensalidade será pausada.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => updateStudentStatus("inactive")} className="bg-destructive text-destructive-foreground">
+                              Confirmar Inativação
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </>
                   )}
                   {(detailStudent.status === "inactive" || detailStudent.status === "frozen") && (
