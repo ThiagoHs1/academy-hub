@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import AdminTreinos from "@/components/admin/AdminTreinos";
+import AdminAssessments from "@/components/admin/AdminAssessments";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -81,7 +82,19 @@ interface Assessment {
   id: string;
   assessment_date: string;
   weight_kg: number | null;
+  height_cm: number | null;
   body_fat_pct: number | null;
+  muscle_mass_kg: number | null;
+  chest_cm: number | null;
+  waist_cm: number | null;
+  hip_cm: number | null;
+  right_arm_cm: number | null;
+  left_arm_cm: number | null;
+  right_thigh_cm: number | null;
+  left_thigh_cm: number | null;
+  right_calf_cm: number | null;
+  left_calf_cm: number | null;
+  notes: string | null;
 }
 
 type AdminTab = "dashboard" | "alunos" | "treinos" | "financeiro" | "analytics" | "config";
@@ -259,7 +272,7 @@ const Admin = () => {
       supabase.from("payments").select("*").eq("student_id", student.id).order("due_date", { ascending: false }),
       supabase.from("checkins").select("id, checked_in_at, method").eq("student_id", student.id).order("checked_in_at", { ascending: false }).limit(30),
       supabase.from("student_workouts").select("id, active, workout_templates(name, category)").eq("student_id", student.id),
-      supabase.from("assessments").select("id, assessment_date, weight_kg, body_fat_pct").eq("student_id", student.id).order("assessment_date", { ascending: false }).limit(5),
+      supabase.from("assessments").select("*").eq("student_id", student.id).order("assessment_date", { ascending: false }),
     ]);
 
     setDetailPayments((payRes.data || []) as Payment[]);
@@ -858,24 +871,11 @@ const Admin = () => {
               </div>
 
               {/* Assessments */}
-              <div className="p-4 border-b border-border/40">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Avaliações</p>
-                {detailAssessments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhuma avaliação.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {detailAssessments.map(a => (
-                      <div key={a.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/40 text-sm">
-                        <span>{format(new Date(a.assessment_date), "dd/MM/yyyy")}</span>
-                        <div className="flex gap-3 text-xs text-muted-foreground">
-                          {a.weight_kg && <span>{a.weight_kg}kg</span>}
-                          {a.body_fat_pct && <span>{a.body_fat_pct}%</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <AdminAssessments
+                studentId={detailStudent.id}
+                assessments={detailAssessments}
+                onRefresh={() => openStudentDetail(detailStudent)}
+              />
 
               {/* Payments */}
               <div className="p-4">
