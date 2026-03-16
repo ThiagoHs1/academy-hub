@@ -651,16 +651,8 @@ const Admin = () => {
         {/* ═══ TREINOS ═══ */}
         {activeTab === "treinos" && <AdminTreinos />}
 
-        {/* ═══ FINANCEIRO (Placeholder) ═══ */}
-        {activeTab === "financeiro" && (
-          <Card className="bg-card border-border/40">
-            <CardContent className="py-20 text-center">
-              <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-              <p className="font-display text-xl font-bold mb-1">Financeiro</p>
-              <p className="text-sm text-muted-foreground">Em construção — controle de pagamentos e relatórios financeiros.</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* ═══ FINANCEIRO ═══ */}
+        {activeTab === "financeiro" && <AdminFinanceiro />}
 
         {/* ═══ ANALYTICS (Placeholder) ═══ */}
         {activeTab === "analytics" && (
