@@ -4,6 +4,7 @@ import AdminAssessments from "@/components/admin/AdminAssessments";
 import AdminDashboard from "@/components/admin/AdminDashboard";
 import AdminFinanceiro from "@/components/admin/AdminFinanceiro";
 import AdminAnalytics from "@/components/admin/AdminAnalytics";
+import AdminConfig from "@/components/admin/AdminConfig";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
