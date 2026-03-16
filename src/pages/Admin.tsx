@@ -871,24 +871,11 @@ const Admin = () => {
               </div>
 
               {/* Assessments */}
-              <div className="p-4 border-b border-border/40">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Avaliações</p>
-                {detailAssessments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhuma avaliação.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {detailAssessments.map(a => (
-                      <div key={a.id} className="flex items-center justify-between p-2 rounded-lg bg-secondary/40 text-sm">
-                        <span>{format(new Date(a.assessment_date), "dd/MM/yyyy")}</span>
-                        <div className="flex gap-3 text-xs text-muted-foreground">
-                          {a.weight_kg && <span>{a.weight_kg}kg</span>}
-                          {a.body_fat_pct && <span>{a.body_fat_pct}%</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <AdminAssessments
+                studentId={detailStudent.id}
+                assessments={detailAssessments}
+                onRefresh={() => openStudentDetail(detailStudent)}
+              />
 
               {/* Payments */}
               <div className="p-4">
