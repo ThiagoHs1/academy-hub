@@ -435,45 +435,7 @@ const Admin = () => {
 
       <main className="max-w-[1400px] mx-auto px-4 py-6">
         {/* ═══ DASHBOARD ═══ */}
-        {activeTab === "dashboard" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { label: "Alunos Ativos", value: activeStudents, icon: Users },
-                { label: "Check-ins Hoje", value: todayCheckins.length, icon: Activity },
-                { label: "Mensalidades Atrasadas", value: overdueCount, icon: DollarSign },
-                { label: "Total Alunos", value: students.length, icon: TrendingUp },
-              ].map(s => (
-                <Card key={s.label} className="bg-card border-border/40">
-                  <CardContent className="p-5">
-                    <s.icon className="h-5 w-5 text-primary mb-2" />
-                    <p className="font-display text-2xl font-bold">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <Card className="bg-card border-border/40">
-              <CardHeader><CardTitle className="font-display text-lg">Check-ins de Hoje</CardTitle></CardHeader>
-              <CardContent>
-                {todayCheckins.length === 0 ? (
-                  <p className="text-muted-foreground text-sm text-center py-6">Nenhum check-in hoje.</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {todayCheckins.slice(0, 15).map((c) => (
-                      <div key={c.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 text-sm">
-                        <span className="font-medium">{c.students?.name || "—"}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {new Date(c.checked_in_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {activeTab === "dashboard" && <AdminDashboard />}
 
         {/* ═══ ALUNOS ═══ */}
         {activeTab === "alunos" && (
