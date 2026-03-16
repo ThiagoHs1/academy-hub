@@ -1,73 +1,138 @@
-# Welcome to your Lovable project
+# 💪 FitForge — Sistema de Gestão para Academias
 
-## Project info
+![FitForge](https://img.shields.io/badge/FitForge-Gym%20Management-A3E635?style=for-the-badge&logo=dumbbell&logoColor=black)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript)
+![Tailwind](https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?style=flat-square&logo=tailwindcss)
+![Supabase](https://img.shields.io/badge/Supabase-Backend-3FCF8E?style=flat-square&logo=supabase)
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+Sistema completo de gestão para academias e estúdios fitness. Controle de alunos, check-ins, treinos, avaliações físicas e financeiro — tudo em uma plataforma moderna e responsiva.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 🚀 Funcionalidades
 
-**Use Lovable**
+### 🏠 Landing Page
+- Apresentação da academia com planos e preços
+- Design dark com acentos em verde lima
+- Totalmente responsiva (mobile-first)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### 📱 Área do Aluno
+- Acesso via número de telefone (sem login/senha)
+- Visualização de treinos ativos com exercícios detalhados
+- Histórico de avaliações físicas com gráficos de evolução
+- Histórico de check-ins e pagamentos
+- Interface mobile-first com bottom tabs
 
-Changes made via Lovable will be committed automatically to this repo.
+### ✅ Check-in Digital
+- Tela otimizada para tablet na recepção
+- Busca por nome ou telefone
+- Validação: apenas alunos ativos, máximo 1 check-in por dia
+- Feed em tempo real dos check-ins do dia
 
-**Use your preferred IDE**
+### 📊 Painel Administrativo
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+| Aba | Descrição |
+|-----|-----------|
+| **Dashboard** | KPIs em tempo real, alunos ausentes, mensalidades vencendo, feed de check-ins |
+| **Alunos** | Cadastro completo, avaliações físicas, histórico de treinos |
+| **Treinos** | Templates de treino com exercícios, séries, repetições e vídeos |
+| **Financeiro** | Controle de mensalidades, geração automática, exportação CSV |
+| **Analytics** | Gráficos de frequência, receita, retenção, horários de pico |
+| **Configurações** | Dados da academia, gestão de planos, horários de funcionamento |
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🛡️ Segurança
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- **Row Level Security (RLS)** em todas as tabelas
+- **Triggers de validação server-side:**
+  - Telefone único por aluno
+  - Rate limiting de check-in (1x/dia)
+  - Bloqueio de check-in para alunos inativos
+  - Validação de datas em pagamentos
+- Proteção contra login brute-force (bloqueio após 5 tentativas)
+- Sanitização de inputs no frontend
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 🛠️ Stack Tecnológica
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+| Camada | Tecnologia |
+|--------|-----------|
+| **Frontend** | React 18, TypeScript, Vite |
+| **Estilização** | Tailwind CSS, shadcn/ui, Framer Motion |
+| **Backend** | Supabase (PostgreSQL, Auth, Realtime, Edge Functions) |
+| **Gráficos** | Recharts |
+| **Deploy** | Lovable Cloud |
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+src/
+├── components/
+│   ├── admin/          # Componentes do painel administrativo
+│   │   ├── AdminDashboard.tsx
+│   │   ├── AdminFinanceiro.tsx
+│   │   ├── AdminAnalytics.tsx
+│   │   ├── AdminConfig.tsx
+│   │   ├── AdminAssessments.tsx
+│   │   └── AdminTreinos.tsx
+│   └── ui/             # Componentes shadcn/ui
+├── pages/
+│   ├── Index.tsx       # Landing page
+│   ├── Admin.tsx       # Painel administrativo
+│   ├── AdminLogin.tsx  # Login do admin
+│   ├── Checkin.tsx     # Tela de check-in
+│   ├── StudentArea.tsx # Área do aluno
+│   └── NotFound.tsx
+├── hooks/              # Custom hooks
+├── integrations/       # Configuração Supabase
+└── lib/                # Utilitários
+```
+
+---
+
+## 🗄️ Modelo de Dados
+
+```
+students ──┬── checkins
+            ├── payments ── plans
+            ├── assessments
+            └── student_workouts ── workout_templates ── workout_exercises
+
+business_settings (configurações da academia)
+```
+
+---
+
+## ⚡ Como Rodar Localmente
+
+```bash
+# 1. Clone o repositório
+git clone <URL_DO_REPO>
+
+# 2. Instale as dependências
+npm install
+
+# 3. Configure as variáveis de ambiente (.env)
+# VITE_SUPABASE_URL=...
+# VITE_SUPABASE_PUBLISHABLE_KEY=...
+
+# 4. Inicie o servidor de desenvolvimento
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📄 Licença
 
-**Use GitHub Codespaces**
+Projeto privado — todos os direitos reservados.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+<p align="center">
+  Feito com 💚 usando <a href="https://lovable.dev">Lovable</a>
+</p>
